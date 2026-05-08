@@ -393,8 +393,8 @@ function SortableThumb({
         isDragging && 'z-10 opacity-60 shadow-edge ring-1 ring-brand',
       )}
       {...attributes}
-      {...listeners}
       {...rest}
+      {...listeners}
     >
       {children}
     </button>
