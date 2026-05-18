@@ -223,7 +223,7 @@ export const ja: Locale = {
       'dev server との接続が切れたため、選択中の要素がエージェントに見えなくなっています。dev server を再起動して接続を復旧してください。',
     leaveComment: 'コメントを残す',
     commentPlaceholder: 'エージェントに依頼する変更を記述…',
-    commentShortcutHint: '⌘↵ で追加',
+    commentShortcutHint: '⌘/ でフォーカス · ⌘↵ で追加',
     addComment: 'コメントを追加',
     unsavedChanges: {
       one: '未保存の変更 {count} 件',

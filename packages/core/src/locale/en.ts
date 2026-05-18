@@ -222,7 +222,7 @@ export const en: Locale = {
     cropResetAria: 'Reset crop',
     leaveComment: 'Leave a comment',
     commentPlaceholder: 'Describe a change for the agent…',
-    commentShortcutHint: '⌘↵ to add',
+    commentShortcutHint: '⌘/ to focus · ⌘↵ to add',
     addComment: 'Add comment',
     unsavedChanges: {
       one: '{count} unsaved change',

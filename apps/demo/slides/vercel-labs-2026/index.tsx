@@ -1778,8 +1778,8 @@ const Closer: Page = () => (
 
 export default [
   Cover,
-  Thesis,
   AgentBrowser,
+  Thesis,
   JustBash,
   OpenAgents,
   Portless,

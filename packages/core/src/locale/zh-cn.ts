@@ -221,7 +221,7 @@ export const zhCN: Locale = {
       '已和 dev server 断开连接，agent 看不到你选的元素了。请重新启动 dev server 来恢复连接。',
     leaveComment: '留个 comment',
     commentPlaceholder: '描述你希望代理执行的更改…',
-    commentShortcutHint: '⌘↵ 添加',
+    commentShortcutHint: '⌘/ 聚焦 · ⌘↵ 添加',
     addComment: '添加 comment',
     unsavedChanges: {
       one: '{count} 项未保存的更改',

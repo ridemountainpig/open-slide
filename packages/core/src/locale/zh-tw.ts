@@ -221,7 +221,7 @@ export const zhTW: Locale = {
       '已和 dev server 斷線，agent 看不到你選的元素了。請重新啟動 dev server 來恢復連線。',
     leaveComment: '留個 comment',
     commentPlaceholder: '描述你希望代理進行的修改…',
-    commentShortcutHint: '⌘↵ 新增',
+    commentShortcutHint: '⌘/ 聚焦 · ⌘↵ 新增',
     addComment: '新增 comment',
     unsavedChanges: {
       one: '{count} 項未儲存的變更',

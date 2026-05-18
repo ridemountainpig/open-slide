@@ -1116,7 +1116,22 @@ function CommentsSection({
 }) {
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const t = useLocale();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== '/') return;
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.altKey || e.shiftKey) return;
+      const ta = wrapRef.current?.querySelector('textarea');
+      if (!ta) return;
+      e.preventDefault();
+      ta.focus({ preventScroll: true });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const submit = async () => {
     const trimmed = draft.trim();
@@ -1133,7 +1148,7 @@ function CommentsSection({
   return (
     <Section title={t.inspector.leaveComment}>
       <div className="flex flex-col gap-2">
-        <div className="comment-cue rounded-[6px]">
+        <div ref={wrapRef} className="comment-cue rounded-[6px]">
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
