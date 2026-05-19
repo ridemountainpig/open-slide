@@ -4,11 +4,87 @@ import { parse as babelParse } from '@babel/parser';
 
 export const SLIDE_ID_RE = /^[a-z0-9_-]+$/i;
 
+type MetaTitleRead =
+  | { kind: 'found'; title: string }
+  | { kind: 'missing' }
+  | { kind: 'unsupported' };
+
 export function validateSlideName(v: unknown): string | null {
   if (typeof v !== 'string') return null;
   const trimmed = v.trim();
   if (trimmed.length < 1 || trimmed.length > 80) return null;
   return trimmed;
+}
+
+function unwrapExpression(
+  node: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  let current = node;
+  while (
+    current &&
+    (current.type === 'TSAsExpression' || current.type === 'TSSatisfiesExpression')
+  ) {
+    current = current.expression as Record<string, unknown> | undefined;
+  }
+  return current;
+}
+
+function readMetaTitleInSource(source: string): MetaTitleRead {
+  let ast: unknown;
+  try {
+    ast = babelParse(source, {
+      sourceType: 'module',
+      plugins: ['typescript', 'jsx'],
+      errorRecovery: true,
+    });
+  } catch {
+    return { kind: 'unsupported' };
+  }
+
+  const body = (ast as { program?: { body?: Array<Record<string, unknown>> } }).program?.body ?? [];
+  for (const stmt of body) {
+    if (stmt.type !== 'ExportNamedDeclaration') continue;
+    const decl = stmt.declaration as Record<string, unknown> | undefined;
+    if (!decl || decl.type !== 'VariableDeclaration') continue;
+    const declarations = (decl.declarations as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const d of declarations) {
+      const id = d.id as Record<string, unknown> | undefined;
+      if (!id || id.type !== 'Identifier' || id.name !== 'meta') continue;
+      const init = unwrapExpression(d.init as Record<string, unknown> | undefined);
+      if (!init || init.type !== 'ObjectExpression') return { kind: 'unsupported' };
+      const properties = (init.properties as Array<Record<string, unknown>> | undefined) ?? [];
+      for (const property of properties) {
+        if (property.type !== 'ObjectProperty' || property.computed) continue;
+        const key = property.key as Record<string, unknown> | undefined;
+        const keyName =
+          key?.type === 'Identifier'
+            ? key.name
+            : key?.type === 'StringLiteral'
+              ? key.value
+              : undefined;
+        if (keyName !== 'title') continue;
+
+        const value = property.value as Record<string, unknown> | undefined;
+        if (value?.type === 'StringLiteral' && typeof value.value === 'string') {
+          return { kind: 'found', title: value.value };
+        }
+        if (value?.type === 'TemplateLiteral') {
+          const expressions = (value.expressions as unknown[] | undefined) ?? [];
+          const quasis = (value.quasis as Array<Record<string, unknown>> | undefined) ?? [];
+          const firstValue = quasis[0]?.value as Record<string, unknown> | undefined;
+          const cooked = firstValue?.cooked;
+          const raw = firstValue?.raw;
+          if (expressions.length === 0 && typeof (cooked ?? raw) === 'string') {
+            return { kind: 'found', title: (cooked ?? raw) as string };
+          }
+        }
+        return { kind: 'unsupported' };
+      }
+      return { kind: 'missing' };
+    }
+  }
+
+  return { kind: 'missing' };
 }
 
 export async function rmSlideDir(slidesRoot: string, slideId: string): Promise<boolean> {
@@ -20,6 +96,85 @@ export async function rmSlideDir(slidesRoot: string, slideId: string): Promise<b
     return true;
   } catch {
     return false;
+  }
+}
+
+export async function duplicateSlideDir(
+  slidesRoot: string,
+  slideId: string,
+  desiredId?: string,
+): Promise<{ ok: true; slideId: string } | { ok: false; status: number; error: string }> {
+  if (!SLIDE_ID_RE.test(slideId)) return { ok: false, status: 400, error: 'invalid slideId' };
+
+  const root = path.resolve(slidesRoot);
+  const srcDir = path.resolve(root, slideId);
+  if (!srcDir.startsWith(root + path.sep)) {
+    return { ok: false, status: 400, error: 'invalid slideId' };
+  }
+
+  try {
+    await fs.access(path.join(srcDir, 'index.tsx'));
+  } catch {
+    return { ok: false, status: 404, error: 'slide not found' };
+  }
+
+  let newId: string;
+  if (desiredId !== undefined) {
+    if (!SLIDE_ID_RE.test(desiredId)) return { ok: false, status: 400, error: 'invalid newId' };
+    newId = desiredId;
+    const dstDir = path.resolve(root, newId);
+    if (!dstDir.startsWith(root + path.sep)) {
+      return { ok: false, status: 400, error: 'invalid newId' };
+    }
+    try {
+      await fs.access(dstDir);
+      return { ok: false, status: 409, error: 'slide already exists' };
+    } catch {}
+  } else {
+    let suffix = 1;
+    while (true) {
+      newId = suffix === 1 ? `${slideId}-copy` : `${slideId}-copy-${suffix}`;
+      try {
+        await fs.access(path.resolve(root, newId));
+        suffix++;
+      } catch {
+        break;
+      }
+    }
+  }
+
+  const dstDir = path.resolve(root, newId);
+  if (!dstDir.startsWith(root + path.sep)) {
+    return { ok: false, status: 400, error: 'invalid newId' };
+  }
+
+  const srcEntry = path.join(srcDir, 'index.tsx');
+  let copiedEntrySource: string;
+  try {
+    const source = await fs.readFile(srcEntry, 'utf8');
+    const metaTitle = readMetaTitleInSource(source);
+    if (metaTitle.kind === 'unsupported') {
+      return { ok: false, status: 422, error: 'could not update copied slide title' };
+    }
+    const title = metaTitle.kind === 'found' ? metaTitle.title : slideId;
+    const updated = updateMetaTitleInSource(source, `${title} (copy)`);
+    if (updated === null) {
+      return { ok: false, status: 422, error: 'could not update copied slide title' };
+    }
+    copiedEntrySource = updated;
+  } catch {
+    return { ok: false, status: 404, error: 'slide not found' };
+  }
+
+  try {
+    await fs.cp(srcDir, dstDir, { recursive: true, errorOnExist: true, force: false });
+    await fs.writeFile(path.join(dstDir, 'index.tsx'), copiedEntrySource, 'utf8');
+    return { ok: true, slideId: newId };
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
+      return { ok: false, status: 409, error: 'slide already exists' };
+    }
+    return { ok: false, status: 500, error: String((err as Error).message ?? err) };
   }
 }
 
