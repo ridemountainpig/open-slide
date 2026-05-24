@@ -166,7 +166,7 @@ export async function init(opts: InitOptions): Promise<void> {
     await writeFile(configPath, renderConfigFile(locale));
   }
 
-  await writeFile(join(target, '.gitignore'), 'node_modules\ndist\n');
+  await writeFile(join(target, '.gitignore'), 'node_modules\ndist\n.DS_Store\n');
 
   const cdTarget = dir === '.' ? basename(target) : dir;
   process.stdout.write(
