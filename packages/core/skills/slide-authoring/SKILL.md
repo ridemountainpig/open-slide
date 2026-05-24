@@ -119,7 +119,7 @@ Pick a coherent look and hold it across every page:
 - **Layout grid** — pick a single content padding (e.g. 120px) and stick to it. Left-aligned content feels editorial; centered feels ceremonial.
 - **Aesthetic commitment** — choose ONE: minimal, maximalist, editorial, retro, brutalist, soft/pastel, neon, paper/print. Don't mix.
 
-Consult the `frontend-design` skill for deeper aesthetic guidance if the user wants something bold.
+Consult the `frontend-design` skill for deeper aesthetic guidance if the user wants something bold. For data visualisation — bar / line / pie / area / funnel / waterfall / scatter / KPI / sparkline / progress — see [`charts.md`](./charts.md) in this directory for the inline-SVG chart patterns.
 
 ## Themes
 
