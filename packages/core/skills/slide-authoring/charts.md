@@ -12,7 +12,7 @@ Every pattern below is a paste-ready React component using inline SVG. Copy one 
 - **Fixed pixel sizing.** Every chart container declares `width` and `height` in px. No `100%`, no `ResponsiveContainer`-style wrappers.
 - **Theme via CSS vars.** Primary series → `var(--osd-accent)`. Body / labels → `var(--osd-text)`. Background → `var(--osd-bg)`. Hard-coded hex on the primary series breaks the Design panel's live re-theming.
 - **Respect the 1080px vertical budget.** Chart + title + axis labels + legend + caption must fit. See `slide-authoring` for the math.
-- **Minimum label size: 22px.** Axis/legend/caption at 22–28px. Body labels 32–44px.
+- **Minimum label size: 22px** for axis ticks, primary legend text, and captions (22–28px). Body labels 32–44px. Secondary annotations — legend swatch labels, in-chart sub-labels, and corner / quadrant tags — may drop to 18–20px when paired with a larger primary label nearby.
 - **No 3D, no exploded slices, no drop shadows, no gloss.** Flat 2D.
 - **Always animate the enter.** A static slide chart feels dead in presentation mode. Use the `<Style />` block and apply the classes — never skip.
 - **Square corners where a bar meets an axis or a stacked neighbour.** `<rect rx>` rounds all four corners and pulls the rectangle off the gridline. Use the `halfRoundPath` helper (defined below) to round only the outer edge — bottom-square for vertical bars, axis-side-square for diverging / stacked bars.
