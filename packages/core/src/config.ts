@@ -13,6 +13,17 @@ export type OpenSlideConfig = {
   port?: number;
   locale?: Locale;
   build?: OpenSlideBuildConfig;
+  /**
+   * Public origin of the deployed site (e.g. `https://slides.example.com`).
+   * Used to emit absolute `og:url` / `og:image` URLs in per-slide HTML at build.
+   * Trailing slashes are stripped. Leave unset to skip absolute URL rewriting.
+   */
   site?: string;
+  /**
+   * Deck-wide default Open Graph image. Applied to every slide that doesn't
+   * set its own `meta.ogImage`. Accepts an `@assets/...` path (resolved
+   * against `assetsDir`), a path relative to the slides root, or an absolute
+   * URL. Use PNG/JPG/WebP.
+   */
   ogImage?: string;
 };

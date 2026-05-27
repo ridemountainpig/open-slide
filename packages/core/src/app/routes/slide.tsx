@@ -670,7 +670,7 @@ export function Slide() {
                   </div>
                   <InspectorPanel />
                   <DesignPanel open={designOpen} onClose={() => setDesignOpen(false)} />
-                  {OgPanel && (
+                  {OgPanel && ogOpen && (
                     <Suspense fallback={null}>
                       <OgPanel
                         open={ogOpen}
