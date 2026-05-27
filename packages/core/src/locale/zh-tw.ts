@@ -265,6 +265,26 @@ export const zhTW: Locale = {
     shuffleTitle: '隨機配色獲取靈感',
   },
 
+  ogPanel: {
+    title: 'OG 預覽',
+    closePanelAria: '關閉 OG 預覽面板',
+    toggle: 'OG',
+    toggleAria: '切換 OG 預覽面板',
+    toggleTitle: '編輯 Open Graph 圖片與描述',
+    titleSection: '標題',
+    titleHint: '使用 slide 名稱;重新命名即可變更。',
+    descriptionSection: '描述',
+    descriptionPlaceholder: '分享 slide 連結時顯示的簡短描述。',
+    imageSection: 'OG 圖片',
+    captureButton: '擷取目前 slide',
+    capturingLabel: '擷取中…',
+    uploadButton: '上傳圖片',
+    noImage: '尚無 OG 圖片,擷取目前 slide 或上傳 PNG/JPG/WebP。',
+    toastCaptured: '已擷取 OG 圖片 ({size} KB)',
+    toastCaptureFailed: '擷取 OG 圖片失敗',
+    toastDescriptionSaveFailed: '儲存描述失敗',
+  },
+
   asset: {
     devOnlyMessage: '素材管理僅在開發模式下可用。',
     sectionAria: '投影片素材',

@@ -267,6 +267,27 @@ export type Locale = {
     shuffleTitle: string;
   };
 
+  ogPanel: {
+    title: string;
+    closePanelAria: string;
+    toggle: string;
+    toggleAria: string;
+    toggleTitle: string;
+    titleSection: string;
+    titleHint: string;
+    descriptionSection: string;
+    descriptionPlaceholder: string;
+    imageSection: string;
+    captureButton: string;
+    capturingLabel: string;
+    uploadButton: string;
+    noImage: string;
+    /** template: "Captured OG image ({size} KB)" */
+    toastCaptured: string;
+    toastCaptureFailed: string;
+    toastDescriptionSaveFailed: string;
+  };
+
   asset: {
     devOnlyMessage: string;
     sectionAria: string;

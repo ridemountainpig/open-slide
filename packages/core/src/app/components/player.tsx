@@ -298,7 +298,7 @@ export function Player({
         controls && (hideCursor ? 'cursor-none' : 'cursor-default'),
       )}
     >
-      <SlideCanvas flat design={design}>
+      <SlideCanvas flat primary design={design}>
         <SlideTransitionLayer
           pages={pages}
           index={index}

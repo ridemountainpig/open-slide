@@ -12,6 +12,7 @@ type Props = {
   freezeMotion?: boolean;
   className?: string;
   design?: DesignSystem;
+  primary?: boolean;
 };
 
 export function SlideCanvas({
@@ -22,6 +23,7 @@ export function SlideCanvas({
   freezeMotion = false,
   className,
   design,
+  primary = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [fitScale, setFitScale] = useState(1);
@@ -67,6 +69,7 @@ export function SlideCanvas({
       >
         <div
           data-osd-canvas
+          data-osd-canvas-primary={primary ? '' : undefined}
           data-osd-freeze-motion={freezeMotion ? '' : undefined}
           style={
             {

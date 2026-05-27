@@ -9,6 +9,10 @@ export type SlideMeta = {
   theme?: string;
   /** ISO 8601 timestamp. Set once at scaffold time; used to sort the slide list. */
   createdAt?: string;
+  /** Used as the `og:description` / `<meta name="description">` for the slide's deployed URL. */
+  description?: string;
+  /** Path to the OG image, either `./og-image.png` (slide-local) or `@assets/<name>` (deck-global). */
+  ogImage?: string;
 };
 
 export type SlideModule = {

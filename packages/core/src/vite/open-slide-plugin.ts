@@ -4,6 +4,7 @@ import path from 'node:path';
 import fg from 'fast-glob';
 import { loadConfigFromFile, type Plugin, type ViteDevServer } from 'vite';
 import type { OpenSlideConfig } from '../config.ts';
+import { findMetaObject } from '../editing/slide-ops.ts';
 
 export type { OpenSlideConfig };
 
@@ -46,7 +47,7 @@ function resolved(id: string): string {
   return `\0${id}`;
 }
 
-async function findSlides(userCwd: string, slidesDir: string): Promise<string[]> {
+export async function findSlides(userCwd: string, slidesDir: string): Promise<string[]> {
   const abs = path.resolve(userCwd, slidesDir);
   if (!existsSync(abs)) return [];
   const hits = await fg('*/index.{tsx,jsx,ts,js}', {
@@ -57,53 +58,54 @@ async function findSlides(userCwd: string, slidesDir: string): Promise<string[]>
   return hits.sort();
 }
 
-function toId(absFile: string, slidesRoot: string): string {
+export function toSlideId(absFile: string, slidesRoot: string): string {
   const rel = path.relative(slidesRoot, absFile);
   return rel.split(path.sep)[0];
 }
 
-const META_THEME_RE = /(?:^|[\s,{])theme\s*:\s*['"]([^'"]+)['"]/;
-const META_CREATED_AT_RE = /(?:^|[\s,{])createdAt\s*:\s*['"]([^'"]+)['"]/;
+export type ExtractedMeta = {
+  theme: string | null;
+  createdAt: string | null;
+  title: string | null;
+  description: string | null;
+  ogImage: string | null;
+};
 
-type ExtractedMeta = { theme: string | null; createdAt: string | null };
+const EMPTY_META: ExtractedMeta = {
+  theme: null,
+  createdAt: null,
+  title: null,
+  description: null,
+  ogImage: null,
+};
 
-function extractMeta(src: string): ExtractedMeta {
-  const empty: ExtractedMeta = { theme: null, createdAt: null };
-  const metaStart = src.search(/export\s+const\s+meta\b/);
-  if (metaStart === -1) return empty;
-  const eqIdx = src.indexOf('=', metaStart);
-  if (eqIdx === -1) return empty;
-  const openBrace = src.indexOf('{', eqIdx);
-  if (openBrace === -1) return empty;
-  let depth = 0;
-  let closeBrace = -1;
-  for (let i = openBrace; i < src.length; i++) {
-    const ch = src[i];
-    if (ch === '{') depth++;
-    else if (ch === '}') {
-      depth--;
-      if (depth === 0) {
-        closeBrace = i;
-        break;
-      }
+const READABLE_META_KEYS: ReadonlyArray<keyof ExtractedMeta> = [
+  'theme',
+  'createdAt',
+  'title',
+  'description',
+  'ogImage',
+];
+
+export function extractMeta(src: string): ExtractedMeta {
+  const info = findMetaObject(src);
+  if (info === null || info === 'invalid') return EMPTY_META;
+  const out: ExtractedMeta = { ...EMPTY_META };
+  for (const prop of info.properties) {
+    if (prop.stringValue === null) continue;
+    if ((READABLE_META_KEYS as ReadonlyArray<string>).includes(prop.keyName)) {
+      out[prop.keyName as keyof ExtractedMeta] = prop.stringValue;
     }
   }
-  if (closeBrace === -1) return empty;
-  const body = src.slice(openBrace + 1, closeBrace);
-  const themeMatch = body.match(META_THEME_RE);
-  const createdAtMatch = body.match(META_CREATED_AT_RE);
-  return {
-    theme: themeMatch ? themeMatch[1] : null,
-    createdAt: createdAtMatch ? createdAtMatch[1] : null,
-  };
+  return out;
 }
 
-async function readSlideMeta(abs: string): Promise<ExtractedMeta> {
+export async function readSlideMeta(abs: string): Promise<ExtractedMeta> {
   try {
     const src = await fs.readFile(abs, 'utf8');
     return extractMeta(src);
   } catch {
-    return { theme: null, createdAt: null };
+    return EMPTY_META;
   }
 }
 
@@ -120,10 +122,15 @@ async function generateSlidesModule(
 ): Promise<string> {
   const entries = await Promise.all(
     files.map(async (abs) => {
-      const id = toId(abs, slidesRoot);
+      const id = toSlideId(abs, slidesRoot);
       const importPath = isDev ? `/@fs/${abs.replace(/^\/+/, '')}` : abs;
       const meta = await readSlideMeta(abs);
-      return { id, importPath, theme: meta.theme, createdAt: parseCreatedAtMs(meta.createdAt) };
+      return {
+        id,
+        importPath,
+        theme: meta.theme,
+        createdAt: parseCreatedAtMs(meta.createdAt),
+      };
     }),
   );
 

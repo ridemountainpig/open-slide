@@ -265,6 +265,26 @@ export const zhCN: Locale = {
     shuffleTitle: '随机配色获取灵感',
   },
 
+  ogPanel: {
+    title: 'OG 预览',
+    closePanelAria: '关闭 OG 预览面板',
+    toggle: 'OG',
+    toggleAria: '切换 OG 预览面板',
+    toggleTitle: '编辑 Open Graph 图片与描述',
+    titleSection: '标题',
+    titleHint: '使用 slide 名称,重命名即可更改。',
+    descriptionSection: '描述',
+    descriptionPlaceholder: '分享 slide 链接时显示的简短描述。',
+    imageSection: 'OG 图片',
+    captureButton: '抓取当前 slide',
+    capturingLabel: '抓取中…',
+    uploadButton: '上传图片',
+    noImage: '尚无 OG 图片,抓取当前 slide 或上传 PNG/JPG/WebP。',
+    toastCaptured: '已抓取 OG 图片 ({size} KB)',
+    toastCaptureFailed: '抓取 OG 图片失败',
+    toastDescriptionSaveFailed: '保存描述失败',
+  },
+
   asset: {
     devOnlyMessage: '素材管理仅在开发模式下可用。',
     sectionAria: '幻灯片素材',

@@ -268,6 +268,26 @@ export const ja: Locale = {
     shuffleTitle: 'シャッフルしてインスピレーションを得る',
   },
 
+  ogPanel: {
+    title: 'OG プレビュー',
+    closePanelAria: 'OG プレビューパネルを閉じる',
+    toggle: 'OG',
+    toggleAria: 'OG プレビューパネルを切り替え',
+    toggleTitle: 'Open Graph 画像と説明を編集',
+    titleSection: 'タイトル',
+    titleHint: 'スライド名を使用します。名前を変更してください。',
+    descriptionSection: '説明',
+    descriptionPlaceholder: 'スライド URL を共有したときに表示される短い説明。',
+    imageSection: 'OG 画像',
+    captureButton: 'スライドから取得',
+    capturingLabel: '取得中…',
+    uploadButton: '画像をアップロード',
+    noImage: 'OG 画像はまだありません。スライドから取得するか PNG/JPG/WebP をアップロード。',
+    toastCaptured: 'OG 画像を取得 ({size} KB)',
+    toastCaptureFailed: 'OG 画像の取得に失敗',
+    toastDescriptionSaveFailed: '説明の保存に失敗',
+  },
+
   asset: {
     devOnlyMessage: 'アセット管理は開発モードでのみ利用できます。',
     sectionAria: 'スライドのアセット',

@@ -13,4 +13,6 @@ export type OpenSlideConfig = {
   port?: number;
   locale?: Locale;
   build?: OpenSlideBuildConfig;
+  site?: string;
+  ogImage?: string;
 };

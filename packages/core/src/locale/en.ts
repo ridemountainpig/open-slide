@@ -266,6 +266,26 @@ export const en: Locale = {
     shuffleTitle: 'Shuffle for inspiration',
   },
 
+  ogPanel: {
+    title: 'OG preview',
+    closePanelAria: 'Close OG preview panel',
+    toggle: 'OG',
+    toggleAria: 'Toggle OG preview panel',
+    toggleTitle: 'Edit Open Graph image & description',
+    titleSection: 'Title',
+    titleHint: 'Uses the slide name — rename the slide to change it.',
+    descriptionSection: 'Description',
+    descriptionPlaceholder: 'A short description shown when the slide URL is shared.',
+    imageSection: 'OG image',
+    captureButton: 'Capture from slide',
+    capturingLabel: 'Capturing…',
+    uploadButton: 'Upload image',
+    noImage: 'No OG image yet. Capture the slide or upload PNG/JPG/WebP.',
+    toastCaptured: 'Captured OG image ({size} KB)',
+    toastCaptureFailed: 'Failed to capture OG image',
+    toastDescriptionSaveFailed: 'Failed to save description',
+  },
+
   asset: {
     devOnlyMessage: 'Asset management is only available in dev mode.',
     sectionAria: 'Slide assets',

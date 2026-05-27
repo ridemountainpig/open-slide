@@ -29,6 +29,103 @@ function unwrapExpression(
   return current;
 }
 
+function readObjectStringValue(value: Record<string, unknown> | undefined): string | null {
+  if (!value) return null;
+  if (value.type === 'StringLiteral' && typeof value.value === 'string') {
+    return value.value;
+  }
+  if (value.type === 'TemplateLiteral') {
+    const expressions = (value.expressions as unknown[] | undefined) ?? [];
+    const quasis = (value.quasis as Array<Record<string, unknown>> | undefined) ?? [];
+    const firstValue = quasis[0]?.value as Record<string, unknown> | undefined;
+    const cooked = firstValue?.cooked;
+    if (expressions.length === 0 && typeof cooked === 'string') return cooked;
+  }
+  return null;
+}
+
+export type MetaProperty = {
+  keyName: string;
+  valueStart: number;
+  valueEnd: number;
+  valueType: string;
+  /** Decoded string value for StringLiteral / no-expression TemplateLiteral; null otherwise. */
+  stringValue: string | null;
+};
+
+export type MetaObjectInfo = {
+  objectStart: number;
+  objectEnd: number;
+  properties: MetaProperty[];
+};
+
+/**
+ * AST-walk `export const meta = { ... }` and return its top-level properties.
+ *
+ * Returns `null` if no `meta` export exists, `'invalid'` if it exists but
+ * isn't an ObjectExpression (e.g. a function, an imported identifier),
+ * otherwise position info plus the top-level property list. Nested objects
+ * are intentionally *not* descended into — callers that want to find or
+ * replace `meta.description` should never match a `description` buried
+ * inside `meta.extras.description`.
+ */
+export function findMetaObject(source: string): MetaObjectInfo | null | 'invalid' {
+  let ast: unknown;
+  try {
+    ast = babelParse(source, {
+      sourceType: 'module',
+      plugins: ['typescript', 'jsx'],
+      errorRecovery: true,
+    });
+  } catch {
+    return 'invalid';
+  }
+  const body = (ast as { program?: { body?: Array<Record<string, unknown>> } }).program?.body ?? [];
+  for (const stmt of body) {
+    if (stmt.type !== 'ExportNamedDeclaration') continue;
+    const decl = stmt.declaration as Record<string, unknown> | undefined;
+    if (!decl || decl.type !== 'VariableDeclaration') continue;
+    const declarations = (decl.declarations as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const d of declarations) {
+      const id = d.id as Record<string, unknown> | undefined;
+      if (!id || id.type !== 'Identifier' || id.name !== 'meta') continue;
+      const init = unwrapExpression(d.init as Record<string, unknown> | undefined);
+      if (!init || init.type !== 'ObjectExpression') return 'invalid';
+      const objectStart = init.start as number | undefined;
+      const objectEnd = init.end as number | undefined;
+      if (typeof objectStart !== 'number' || typeof objectEnd !== 'number') {
+        return 'invalid';
+      }
+      const rawProperties = (init.properties as Array<Record<string, unknown>> | undefined) ?? [];
+      const properties: MetaProperty[] = [];
+      for (const property of rawProperties) {
+        if (property.type !== 'ObjectProperty' || property.computed) continue;
+        const key = property.key as Record<string, unknown> | undefined;
+        const keyName =
+          key?.type === 'Identifier'
+            ? (key.name as string | undefined)
+            : key?.type === 'StringLiteral'
+              ? (key.value as string | undefined)
+              : undefined;
+        if (typeof keyName !== 'string') continue;
+        const value = property.value as Record<string, unknown> | undefined;
+        const valueStart = value?.start as number | undefined;
+        const valueEnd = value?.end as number | undefined;
+        if (typeof valueStart !== 'number' || typeof valueEnd !== 'number') continue;
+        properties.push({
+          keyName,
+          valueStart,
+          valueEnd,
+          valueType: (value?.type as string) ?? 'unknown',
+          stringValue: readObjectStringValue(value),
+        });
+      }
+      return { objectStart, objectEnd, properties };
+    }
+  }
+  return null;
+}
+
 function readMetaTitleInSource(source: string): MetaTitleRead {
   let ast: unknown;
   try {
@@ -188,70 +285,65 @@ export function resolveSlideEntry(slidesRoot: string, slideId: string): string |
 }
 
 function escapeSingleQuoted(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return s
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 }
 
+const SAFE_META_KEY_RE = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
+
 /**
- * Rewrite (or insert) the `title` field in the slide module's `export const meta`.
+ * Rewrite (or insert) a string-valued field in the slide module's `export const meta`.
  *
- * Strategy:
- *   1. Find `export const meta` and brace-match its object literal.
- *   2. If the object already has a `title: '...'` entry, replace the literal.
- *   3. If the object exists but has no title, inject a new `title: '...'` line
- *      as the first property (preserving the author's surrounding indentation).
+ * Walks the AST to locate the top-level `meta` ObjectExpression and its
+ * direct properties (never descending into nested objects), then:
+ *   1. If a top-level property with `key` exists and its value is a plain
+ *      string literal, replace just the value text.
+ *   2. If it exists but the value is a template literal, identifier, or any
+ *      other non-string-literal expression, refuse (returns null) so we
+ *      don't destroy author intent.
+ *   3. If no such top-level property exists, inject `key: '...'` as the
+ *      first entry of the meta object (preserving the author's indentation).
  *   4. If there is no `meta` export at all, insert a fresh one right before
  *      `export default`.
  *
- * Returns the rewritten source, or `null` if the file shape was too surprising
- * to touch safely (e.g. `export default` missing when we'd need to inject meta).
+ * Returns the rewritten source, or `null` if the file shape was too
+ * surprising to touch safely.
  */
-export function updateMetaTitleInSource(source: string, title: string): string | null {
-  const newLiteral = `'${escapeSingleQuoted(title)}'`;
+export function updateMetaFieldInSource(source: string, key: string, value: string): string | null {
+  if (!SAFE_META_KEY_RE.test(key)) return null;
+  const newLiteral = `'${escapeSingleQuoted(value)}'`;
 
-  const metaStart = source.search(/export\s+const\s+meta\b/);
-  if (metaStart !== -1) {
-    const eqIdx = source.indexOf('=', metaStart);
-    if (eqIdx === -1) return null;
-    const openBrace = source.indexOf('{', eqIdx);
-    if (openBrace === -1) return null;
-
-    let depth = 0;
-    let closeBrace = -1;
-    for (let i = openBrace; i < source.length; i++) {
-      const ch = source[i];
-      if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) {
-          closeBrace = i;
-          break;
-        }
-      }
-    }
-    if (closeBrace === -1) return null;
-
-    const body = source.slice(openBrace + 1, closeBrace);
-    const titleRe = /(^|[\s,{])(title\s*:\s*)(['"`])((?:\\.|(?!\3).)*)\3/;
-    const match = body.match(titleRe);
-    if (match) {
-      const newBody = body.replace(titleRe, `${match[1]}${match[2]}${newLiteral}`);
-      return source.slice(0, openBrace + 1) + newBody + source.slice(closeBrace);
-    }
-
-    // No title yet — inject as the first property, copying the indentation of
-    // the first existing property (or a sensible default for an empty object).
-    const firstIndentMatch = body.match(/\n([ \t]+)\S/);
-    const indent = firstIndentMatch ? firstIndentMatch[1] : '  ';
-    const trimmedBody = body.replace(/^\s*\n?/, '');
-    const needsSeparator = trimmedBody.trim().length > 0;
-    const insertion = `\n${indent}title: ${newLiteral}${needsSeparator ? ',' : ''}`;
-    return source.slice(0, openBrace + 1) + insertion + body + source.slice(closeBrace);
+  const info = findMetaObject(source);
+  if (info === 'invalid') return null;
+  if (info === null) {
+    const exportDefaultIdx = source.search(/export\s+default\b/);
+    if (exportDefaultIdx === -1) return null;
+    const insertion = `export const meta: SlideMeta = { ${key}: ${newLiteral} };\n\n`;
+    return source.slice(0, exportDefaultIdx) + insertion + source.slice(exportDefaultIdx);
   }
 
-  const exportDefaultIdx = source.search(/export\s+default\b/);
-  if (exportDefaultIdx === -1) return null;
-  const insertion = `export const meta: SlideMeta = { title: ${newLiteral} };\n\n`;
-  return source.slice(0, exportDefaultIdx) + insertion + source.slice(exportDefaultIdx);
+  const existing = info.properties.find((p) => p.keyName === key);
+  if (existing) {
+    if (existing.stringValue === null) return null;
+    return source.slice(0, existing.valueStart) + newLiteral + source.slice(existing.valueEnd);
+  }
+
+  const body = source.slice(info.objectStart + 1, info.objectEnd);
+  const firstIndentMatch = body.match(/\n([ \t]+)\S/);
+  const indent = firstIndentMatch ? firstIndentMatch[1] : '  ';
+  const trimmedBody = body.replace(/^\s*\n?/, '');
+  const needsSeparator = trimmedBody.trim().length > 0;
+  const insertion = `\n${indent}${key}: ${newLiteral}${needsSeparator ? ',' : ''}`;
+  return source.slice(0, info.objectStart + 1) + insertion + body + source.slice(info.objectEnd);
+}
+
+export function updateMetaTitleInSource(source: string, title: string): string | null {
+  return updateMetaFieldInSource(source, 'title', title);
 }
 
 type ArrayElementRange = { start: number; end: number };

@@ -13,7 +13,16 @@ import {
   Pencil,
   Play,
 } from 'lucide-react';
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  type RefObject,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AssetView } from '@/components/asset-view';
@@ -27,6 +36,7 @@ import {
   useInspector,
 } from '@/components/inspector/inspector-provider';
 import { SaveBar } from '@/components/inspector/save-bar';
+import { OgPanelToggleButton } from '@/components/og-panel/og-panel-toggle';
 import { DesignProvider } from '@/components/style-panel/design-provider';
 import { DesignPanel, DesignToggleButton } from '@/components/style-panel/style-panel';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -59,6 +69,10 @@ import { useSlideModule } from '../lib/use-slide-module';
 
 const { showSlideUi, showSlideBrowser, allowHtmlDownload } = config.build;
 
+const OgPanel = import.meta.env.DEV
+  ? lazy(() => import('@/components/og-panel/og-panel').then((m) => ({ default: m.OgPanel })))
+  : null;
+
 export function Slide() {
   const { slideId = '' } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -68,6 +82,7 @@ export function Slide() {
   const [linkCopied, setLinkCopied] = useState(false);
   const linkCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [designOpen, setDesignOpen] = useState(false);
+  const [ogOpen, setOgOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -240,12 +255,22 @@ export function Slide() {
       } else if (e.key === 'f' || e.key === 'F') {
         setPlayMode('fullscreen');
       } else if (import.meta.env.DEV && (e.key === 'd' || e.key === 'D')) {
-        setDesignOpen((v) => !v);
+        setDesignOpen((v) => {
+          const next = !v;
+          if (next) setOgOpen(false);
+          return next;
+        });
+      } else if (import.meta.env.DEV && view === 'slides' && (e.key === 'o' || e.key === 'O')) {
+        setOgOpen((v) => {
+          const next = !v;
+          if (next) setDesignOpen(false);
+          return next;
+        });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [index, goTo, playMode]);
+  }, [index, goTo, playMode, view]);
 
   if (error) {
     return (
@@ -504,7 +529,28 @@ export function Slide() {
                 </DropdownMenu>
               )}
               {view === 'slides' && (
-                <DesignToggleButton active={designOpen} onToggle={() => setDesignOpen((v) => !v)} />
+                <DesignToggleButton
+                  active={designOpen}
+                  onToggle={() => {
+                    setDesignOpen((v) => {
+                      const next = !v;
+                      if (next) setOgOpen(false);
+                      return next;
+                    });
+                  }}
+                />
+              )}
+              {view === 'slides' && (
+                <OgPanelToggleButton
+                  active={ogOpen}
+                  onToggle={() => {
+                    setOgOpen((v) => {
+                      const next = !v;
+                      if (next) setDesignOpen(false);
+                      return next;
+                    });
+                  }}
+                />
               )}
               {view === 'slides' && <InspectToggleButton />}
               <span aria-hidden className="mx-0.5 hidden h-5 w-px bg-hairline md:block" />
@@ -588,7 +634,7 @@ export function Slide() {
                       canPrev={index > 0}
                       canNext={index < pageCount - 1}
                     />
-                    <SlideCanvas design={slide.design}>
+                    <SlideCanvas primary design={slide.design}>
                       <SlideTransitionLayer
                         pages={pages}
                         index={index}
@@ -624,6 +670,16 @@ export function Slide() {
                   </div>
                   <InspectorPanel />
                   <DesignPanel open={designOpen} onClose={() => setDesignOpen(false)} />
+                  {OgPanel && (
+                    <Suspense fallback={null}>
+                      <OgPanel
+                        open={ogOpen}
+                        onClose={() => setOgOpen(false)}
+                        slideId={slideId}
+                        meta={slide.meta}
+                      />
+                    </Suspense>
+                  )}
                 </div>
                 {import.meta.env.DEV && (
                   <NotesDrawer

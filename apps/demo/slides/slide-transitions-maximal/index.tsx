@@ -724,6 +724,9 @@ Cli.transition = {
 };
 
 export const meta: SlideMeta = {
+  description:
+    'Introducing Transition. A per-page animation API. Two keyframe arrays, one easing curve, every transformable property the browser already understands — and the GPU does the rest.',
+  ogImage: './og-image.png',
   title: 'Maximal — Eight Transitions',
   createdAt: '2026-05-24T00:00:00.000Z',
 };

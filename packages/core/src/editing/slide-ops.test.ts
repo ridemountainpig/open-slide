@@ -8,6 +8,7 @@ import {
   removePageFromDefaultExportInSource,
   reorderDefaultExportPagesInSource,
   reorderNotesArrayInSource,
+  updateMetaFieldInSource,
   updateMetaTitleInSource,
   validateSlideName,
 } from './slide-ops.ts';
@@ -117,6 +118,12 @@ describe('updateMetaTitleInSource', () => {
     expect(out).toContain("title: 'new'");
   });
 
+  it('replaces an existing static template-literal title', () => {
+    const source = 'export const meta = { title: `old` };\nexport default [];\n';
+    const out = updateMetaTitleInSource(source, 'new');
+    expect(out).toContain("title: 'new'");
+  });
+
   it('escapes single quotes inside the new title', () => {
     const source = `export const meta = { title: 'old' };\nexport default [];\n`;
     const out = updateMetaTitleInSource(source, "it's new");
@@ -145,6 +152,146 @@ describe('updateMetaTitleInSource', () => {
 
   it('returns null if there is no meta and no default export', () => {
     expect(updateMetaTitleInSource('// nothing here', 'x')).toBeNull();
+  });
+});
+
+describe('updateMetaFieldInSource', () => {
+  it('replaces an existing description literal', () => {
+    const source = `export const meta = { title: 't', description: 'old' };\nexport default [];\n`;
+    const out = updateMetaFieldInSource(source, 'description', 'new');
+    expect(out).toContain("description: 'new'");
+    expect(out).not.toContain("'old'");
+    expect(out).toContain("title: 't'");
+  });
+
+  it('replaces an existing static template-literal description', () => {
+    const source = "export const meta = { title: 't', description: `old` };\nexport default [];\n";
+    const out = updateMetaFieldInSource(source, 'description', 'new');
+    expect(out).toContain("description: 'new'");
+  });
+
+  it('injects ogImage into an existing meta object', () => {
+    const source = `export const meta = { title: 't' };\nexport default [];\n`;
+    const out = updateMetaFieldInSource(source, 'ogImage', './og-image.png');
+    expect(out).toMatch(/ogImage:\s*'\.\/og-image\.png'/);
+    expect(out).toContain("title: 't'");
+  });
+
+  it('injects a fresh meta export when none exists', () => {
+    const source = `export default [];\n`;
+    const out = updateMetaFieldInSource(source, 'description', 'hello');
+    expect(out).toContain("export const meta: SlideMeta = { description: 'hello' };");
+  });
+
+  it('rejects unsafe keys', () => {
+    const source = `export const meta = { title: 't' };\nexport default [];\n`;
+    expect(updateMetaFieldInSource(source, '"; rm -rf /', 'x')).toBeNull();
+    expect(updateMetaFieldInSource(source, 'foo bar', 'x')).toBeNull();
+    expect(updateMetaFieldInSource(source, '', 'x')).toBeNull();
+  });
+
+  it('escapes single quotes in the value', () => {
+    const source = `export const meta = { title: 't' };\nexport default [];\n`;
+    const out = updateMetaFieldInSource(source, 'description', "it's cool");
+    expect(out).toContain("description: 'it\\'s cool'");
+  });
+
+  it('escapes newlines so multi-line values stay in a single-quoted literal', () => {
+    const source = `export const meta = { title: 't' };\nexport default [];\n`;
+    const out = updateMetaFieldInSource(source, 'description', 'line one\nline two\rline three');
+    expect(out).toContain("description: 'line one\\nline two\\rline three'");
+    expect(out).not.toMatch(/description: 'line one\n/);
+  });
+
+  it('refuses to inject when the key already exists in a non-string-literal form', () => {
+    const source = `const DESC = 'x';\nexport const meta = { title: 't', description: DESC };\nexport default [];\n`;
+    expect(updateMetaFieldInSource(source, 'description', 'new')).toBeNull();
+  });
+
+  it('handles $-prefixed keys without insert-loop duplication', () => {
+    // SAFE_META_KEY_RE allows `$`; without regex-escaping it the dynamic
+    // regex's `$` would anchor to end-of-input and never match the existing
+    // entry, causing a duplicate key on every call.
+    const source = `export const meta = { $custom: 'old' };\nexport default [];\n`;
+    const out = updateMetaFieldInSource(source, '$custom', 'new');
+    expect(out).toContain("$custom: 'new'");
+    expect(out).not.toContain("'old'");
+    expect(out?.match(/\$custom\s*:/g)?.length).toBe(1);
+  });
+});
+
+describe('updateMetaFieldInSource <-> extractMeta round-trip', () => {
+  it('preserves apostrophes, newlines, and unicode line separators', async () => {
+    const { extractMeta } = await import('../vite/open-slide-plugin.ts');
+    const tricky = "It's cool\nline two line three";
+    const base = `export const meta = { title: 't' };\nexport default [];\n`;
+    const out = updateMetaFieldInSource(base, 'description', tricky);
+    expect(out).not.toBeNull();
+    const parsed = extractMeta(out as string);
+    expect(parsed.description).toBe(tricky);
+    expect(parsed.title).toBe('t');
+  });
+
+  it('preserves backslashes and quotes', async () => {
+    const { extractMeta } = await import('../vite/open-slide-plugin.ts');
+    const tricky = `a \\ b 'c' "d"`;
+    const base = `export const meta = { title: 't' };\nexport default [];\n`;
+    const out = updateMetaFieldInSource(base, 'description', tricky);
+    const parsed = extractMeta(out as string);
+    expect(parsed.description).toBe(tricky);
+  });
+
+  it('ignores nested-object same-name keys when reading', async () => {
+    // A nested `description:` should never be picked up as if it were the
+    // top-level meta description. Flat-regex extractors got this wrong and
+    // emitted the inner string as og:description at build.
+    const { extractMeta } = await import('../vite/open-slide-plugin.ts');
+    const source = `export const meta = { title: 'real', extras: { description: 'inner' } };\nexport default [];\n`;
+    const parsed = extractMeta(source);
+    expect(parsed.title).toBe('real');
+    expect(parsed.description).toBeNull();
+  });
+
+  it('injects a missing top-level field when the same name exists nested', async () => {
+    // Flat-regex `keyPresentRe` matched a nested `description:` and refused
+    // to inject, producing a permanent 422 for the OG panel on that slide.
+    const { extractMeta } = await import('../vite/open-slide-plugin.ts');
+    const source = `export const meta = { title: 't', custom: { description: 'inner' } };\nexport default [];\n`;
+    const out = updateMetaFieldInSource(source, 'description', 'top-level');
+    expect(out).not.toBeNull();
+    const parsed = extractMeta(out as string);
+    expect(parsed.description).toBe('top-level');
+    // Nested literal should be untouched.
+    expect(out).toContain("description: 'inner'");
+  });
+
+  it('refuses to overwrite a dynamic top-level template-literal value', async () => {
+    // Template literals can contain interpolations; silently replacing them
+    // with a single-quoted literal would destroy author intent. Caller gets
+    // null and surfaces the failure rather than corrupting the source.
+    const source = `export const meta = { description: \`Year \${YEAR}\` };\nexport default [];\n`;
+    expect(updateMetaFieldInSource(source, 'description', 'new')).toBeNull();
+  });
+
+  it('survives a stray `}` inside a string value', async () => {
+    // Brace-matching that treated `}` inside string literals as a real close
+    // would truncate the meta object scan here, then drop later fields and
+    // break the next PATCH. Description text is author-controlled free text,
+    // so this needs to be safe.
+    const { extractMeta } = await import('../vite/open-slide-plugin.ts');
+    const tricky = 'has a } brace and { brace';
+    const base = `export const meta = { title: 't', theme: 'dark' };\nexport default [];\n`;
+    const written = updateMetaFieldInSource(base, 'description', tricky);
+    expect(written).not.toBeNull();
+    const parsed = extractMeta(written as string);
+    expect(parsed.description).toBe(tricky);
+    expect(parsed.title).toBe('t');
+    expect(parsed.theme).toBe('dark');
+    const reWritten = updateMetaFieldInSource(written as string, 'title', 'new');
+    expect(reWritten).not.toBeNull();
+    const reParsed = extractMeta(reWritten as string);
+    expect(reParsed.title).toBe('new');
+    expect(reParsed.description).toBe(tricky);
   });
 });
 

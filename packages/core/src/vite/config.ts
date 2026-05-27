@@ -3,12 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import type { InlineConfig } from 'vite';
+import { type InlineConfig, searchForWorkspaceRoot } from 'vite';
 import { apiPlugin } from './api-plugin.ts';
 import { currentPlugin } from './current-plugin.ts';
 import { designPlugin } from './design-plugin.ts';
 import { locTagsPlugin } from './loc-tags-plugin.ts';
 import { notesPlugin } from './notes-plugin.ts';
+import { ogBuildPlugin } from './og-build-plugin.ts';
 import { loadUserConfig, type OpenSlideConfig, openSlidePlugin } from './open-slide-plugin.ts';
 import { themesPlugin } from './themes-plugin.ts';
 
@@ -54,6 +55,7 @@ export async function createViteConfig(opts: CreateViteConfigOptions): Promise<I
       apiPlugin({ userCwd, slidesDir, assetsDir }),
       notesPlugin({ userCwd, slidesDir }),
       currentPlugin({ userCwd, slidesDir }),
+      ogBuildPlugin({ userCwd, config }),
     ],
     resolve: {
       alias: {
@@ -95,7 +97,20 @@ export async function createViteConfig(opts: CreateViteConfigOptions): Promise<I
     },
     server: {
       port: config.port ?? 5173,
-      fs: { allow: [APP_ROOT, userCwd, slidesAbs, themesAbs, assetsAbs] },
+      // Allow hoisted node_modules so pnpm-hoisted deps (e.g. @fontsource-* woff2
+      // inlined by html-to-image during OG capture) pass Vite's /@fs/ guard.
+      // Not the whole workspace root — that would expose .env / sibling secrets
+      // over `pnpm dev --host`.
+      fs: {
+        allow: [
+          APP_ROOT,
+          userCwd,
+          slidesAbs,
+          themesAbs,
+          assetsAbs,
+          path.join(searchForWorkspaceRoot(userCwd), 'node_modules'),
+        ],
+      },
     },
     build: {
       outDir: path.resolve(userCwd, 'dist'),
