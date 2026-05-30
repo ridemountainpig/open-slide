@@ -1,7 +1,6 @@
 import type { DesignSystem } from '@open-slide/core';
 import { type Page, useSlidePageNumber } from '@open-slide/core';
 
-// ─── Google Fonts + shared animations ─────────────────────────────────────────
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
@@ -19,7 +18,6 @@ const css = `
 
 const Styles = () => <style>{css}</style>;
 
-// ─── Design tokens ─────────────────────────────────────────────────────────────
 export const design: DesignSystem = {
   palette: {
     bg: '#FAF6F1',
@@ -37,7 +35,6 @@ export const design: DesignSystem = {
   radius: 10,
 };
 
-// ─── Palette constants ─────────────────────────────────────────────────────────
 const p = {
   bg: '#FAF6F1',
   text: '#2F3034',
@@ -56,7 +53,6 @@ const font = {
   mono: '"IBM Plex Mono", ui-monospace, Menlo, monospace',
 };
 
-// ─── Shared components ─────────────────────────────────────────────────────────
 const Title = ({ children }: { children: React.ReactNode }) => (
   <h1
     style={{
@@ -210,7 +206,6 @@ const WindowShell = ({
   </div>
 );
 
-// ─── Page 1: Cover ─────────────────────────────────────────────────────────────
 const Cover: Page = () => (
   <div
     style={{
@@ -237,7 +232,6 @@ const Cover: Page = () => (
         justifyContent: 'space-between',
       }}
     >
-      {/* Top: logo + label */}
       <div
         className="rp-fadeIn"
         style={{ animationDelay: '0.05s', display: 'flex', alignItems: 'center', gap: 16 }}
@@ -250,7 +244,6 @@ const Cover: Page = () => (
         </span>
       </div>
 
-      {/* Center: headline */}
       <div>
         <div className="rp-fadeUp" style={{ animationDelay: '0.1s' }}>
           <Title>Build anything.</Title>
@@ -286,7 +279,6 @@ const Cover: Page = () => (
         </p>
       </div>
 
-      {/* Bottom: feature tags */}
       <div
         className="rp-fadeUp"
         style={{
@@ -312,7 +304,6 @@ const Cover: Page = () => (
   </div>
 );
 
-// ─── Page 2: Features (WindowShell + cards) ────────────────────────────────────
 const Features: Page = () => (
   <div
     style={{
@@ -340,7 +331,6 @@ const Features: Page = () => (
         alignItems: 'center',
       }}
     >
-      {/* Left: text */}
       <div>
         <div className="rp-fadeUp" style={{ animationDelay: '0.05s' }}>
           <Eyebrow>Replit AI</Eyebrow>
@@ -374,7 +364,6 @@ const Features: Page = () => (
           setup, no context-switching.
         </p>
 
-        {/* Stat pills */}
         <div
           className="rp-fadeUp"
           style={{
@@ -421,7 +410,6 @@ const Features: Page = () => (
         </div>
       </div>
 
-      {/* Right: WindowShell + feature cards */}
       <div
         className="rp-fadeUp"
         style={{ animationDelay: '0.14s', display: 'flex', flexDirection: 'column', gap: 20 }}
@@ -485,7 +473,6 @@ const Features: Page = () => (
   </div>
 );
 
-// ─── Page 3: Closer (light, orange headline) ───────────────────────────────────
 const Closer: Page = () => (
   <div
     style={{
@@ -512,12 +499,10 @@ const Closer: Page = () => (
         justifyContent: 'space-between',
       }}
     >
-      {/* Top */}
       <div className="rp-fadeIn" style={{ animationDelay: '0.05s' }}>
         <Eyebrow>Get started — it&rsquo;s free</Eyebrow>
       </div>
 
-      {/* Center */}
       <div>
         <h2
           className="rp-fadeUp"
@@ -551,7 +536,6 @@ const Closer: Page = () => (
         </p>
       </div>
 
-      {/* Bottom */}
       <div
         className="rp-fadeUp"
         style={{
